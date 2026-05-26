@@ -50,6 +50,8 @@ def run_session() -> int:
         "一条流水线：\n"
         "  ① LLM 生成 → ② LLM 自检 → ③ 阿里云\n"
         "  → ④ [可选] 修改建议+变体 → 阿里云 → 最终 list\n"
+        "\n"
+        "每次运行填写当次业务方向即可（如本次钣金加工，下次可换自动化设备配件等）。\n"
     )
 
     session_final: list[dict] = []
@@ -57,7 +59,8 @@ def run_session() -> int:
 
     while True:
         business = _prompt_line(
-            "\n请输入想要生成的域名行业范围：\n（例如：钣金加工，出口欧美）"
+            "\n请输入本次要生成域名的业务/行业方向：\n"
+            "（例如：钣金加工、自动化设备配件）"
         )
         if not business:
             print("未输入内容，已跳过本轮。")
@@ -97,7 +100,7 @@ def run_session() -> int:
         print("\nlist: " + ", ".join(i["domain"] for i in session_final))
         print("=" * 50)
     else:
-        print("\n本次未得到可注册域名，可换一句行业描述再试。")
+        print("\n本次未得到可注册域名，可换一句业务方向再试。")
 
     print("\n按回车键退出…", flush=True)
     try:

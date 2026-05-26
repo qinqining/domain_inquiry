@@ -9,3 +9,4 @@ output/
 data/domain_cache.json
 output/*
 !output/.gitkeep
+note.md

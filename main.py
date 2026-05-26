@@ -204,7 +204,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_gen = sub.add_parser(
         "generate", help="调用 DeepSeek 生成域名（需 DEEPSEEK_API_KEY）"
     )
-    p_gen.add_argument("--business", "-b", required=True, help="业务描述")
+    p_gen.add_argument(
+        "--business",
+        "-b",
+        required=True,
+        help="当次业务/行业方向（如：钣金加工、自动化设备配件）",
+    )
     p_gen.add_argument(
         "--check", action="store_true", help="自检通过后查询阿里云并写入 output/"
     )
