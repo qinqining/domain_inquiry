@@ -4,9 +4,10 @@ venv/
 __pycache__/
 *.pyc
 .pytest_cache/
-output/
+# 任务结果仅本机保存，不同步 Git（保留说明文件）
+output/**
+!output/README.md
+!output/.gitkeep
 *.csv
 data/domain_cache.json
-output/*
-!output/.gitkeep
 note.md

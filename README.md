@@ -1,160 +1,290 @@
-# 域名生成与阿里云可注册查询
+# domain_inquiry
 
-先用 Python 本地跑通，再接入 Coze 等工作流。
+面向精密加工外贸独立站的 **.com 短域名** 生成与可注册性查询工具。基于 DeepSeek 完成候选生成与质量自检，通过阿里云 `CheckDomain` 核验注册状态，结果落盘至本地 `output/` 目录。
 
-## 说明
+---
 
-- **可注册查询**使用阿里云 `CheckDomain`（不是 `DescribeDomainInfo`）。后者用于查询**已注册**域名的详情。
-- RAM 用户需具备 `domain:QueryDomain` 权限。
-- `CheckDomain` 频率约 **10 QPS/账号**，脚本默认每次查询间隔 0.12 秒。
+## 功能概述
 
-## 同事使用（Windows · 推荐）
+- **LLM 生成**：按当次业务方向生成约 50 个候选域名（可虚构造词，4–6 字母为主）。
+- **LLM 自检**：从可读性、可发音性、可记忆性、独特性等维度评分并筛选。
+- **可注册查询**：对自检通过域名调用阿里云 `CheckDomain`（非 `DescribeDomainInfo`）。
+- **可选终稿变体**：对首轮可注册域名生成修改建议与 coined 变体，再次查询；变体不重复自检。
+- **本地归档**：每轮任务生成 JSON / Markdown 报告；`output/latest/` 保留最近一次副本。
+- **缓存与避让**：不可注册结果缓存 14 天以减少 API 调用；人工否决列表注入生成 prompt。
 
-| 步骤 | 操作 |
-|------|------|
-| 你 | `git push` 代码（**不要**提交 `.env`） |
-| 同事 | 安装 [Python 3.10+](https://www.python.org/downloads/)（勾选 **Add to PATH**） |
-| 同事 | `git clone` 仓库到本机，例如 `C:\tools\domain_inquiry` |
-| 同事 | 双击项目内 **`setup_windows.bat`**（仅首次） |
-| 同事 | 按提示编辑 `.env` 填入阿里云、DeepSeek 密钥 |
-| 同事 | 以后双击桌面 **`域名工具.bat`** 即可 |
+---
 
-详细说明见 [docs/Windows同事安装.md](docs/Windows同事安装.md)。
+## 处理流水线
 
-开发者在项目目录内也可直接双击 `run.bat`。
+单条流水线（非独立多轮任务）：
 
-### Mac（可选）
 
-终端执行一次 `chmod +x run.sh`，之后 `./run.sh`。
+| 步骤    | 说明                                                              |
+| ----- | --------------------------------------------------------------- |
+| 1     | LLM 生成候选（`prompts/domain_generator.txt`）                        |
+| 2     | LLM 自检（`prompts/domain_reviewer.txt`，默认 `REVIEW_MIN_SCORE=7`）   |
+| 3     | 阿里云 `CheckDomain`                                               |
+| 4（可选） | 修改建议 + 变体生成（`prompts/domain_refiner.txt`）→ 变体直接查阿里云 → 合并最终 list |
 
-交互提示：输入**当次**业务方向（每次可不同）→ 步骤1~3 → 可选步骤4 → 最终 list → **询问是否继续生成** → 退出前汇总本次会话 list。
 
-开发者在 Windows 上检查 `run.sh` 语法：`powershell -File scripts/test-run-sh.ps1`（需 Git Bash），或在 WSL 里 `bash -n run.sh`。
+**业务方向**：每次运行通过 `-b` 或交互输入指定当次方向（例如「钣金加工」「自动化设备配件」）。公司级背景由 `context/company.md`、`context/naming_prefs.md` 注入，与当次方向组合使用。
 
-## 流水线（一条，非两轮）
+**步骤 4 说明**：变体阶段不进行第二轮 LLM 自检；若首轮变体均不可注册，将自动重试一轮更虚构的造词。最终 list 中「变体可注册」条目优先于「首轮可注册」，并含读音与释义。
 
-| 步骤 | 说明 |
-|------|------|
-| 1 | LLM 生成候选 |
-| 2 | LLM 自检（读音/寓意/四维分） |
-| 3 | 阿里云 CheckDomain |
-| 4（可选） | 对可注册域名：LLM 修改建议 + 修复变体 → **直接**阿里云再查 → 最终 list |
+---
 
-步骤4 **不再**跑第二轮 LLM 自检；变体优先排在最终 list 前面。
+## 环境要求
 
-## 快速开始
+
+| 组件       | 版本 / 说明                                      |
+| -------- | -------------------------------------------- |
+| Python   | 3.10 及以上                                     |
+| 操作系统     | Windows 10/11（推荐）；macOS / Linux 可使用 `run.sh` |
+| 阿里云 RAM  | 权限 `domain:QueryDomain`                      |
+| DeepSeek | API Key（`deepseek-chat` 等）                   |
+| 网络       | 可访问 `api.deepseek.com` 与阿里云域名 API            |
+
+
+`CheckDomain` 账户级频率约 **10 QPS**；程序默认每次查询间隔 **0.12 秒**。
+
+---
+
+## 安装
+
+### Windows（推荐）
+
+1. 安装 [Python 3.10+](https://www.python.org/downloads/)，安装时勾选 **Add python.exe to PATH**。
+2. 克隆仓库至本机（路径建议不含中文与空格），例如 `C:\tools\domain_inquiry`。
+3. 进入项目根目录，双击执行 `**setup_windows.bat`**（仅首次）：
+  - 创建 `.venv` 并安装 `requirements.txt`
+  - 从 `.env.example` 复制 `.env`（若不存在）
+  - 在桌面生成 `**域名工具.bat**` 快捷启动脚本
+4. 编辑项目根目录 `**.env**`，填入密钥（勿提交版本库）。
+5. 日常使用：双击桌面 `**域名工具.bat**`，或项目内 `**run.bat**`。
+
+若项目目录迁移，需重新执行 `setup_windows.bat` 以更新桌面启动器路径。
+
+详细步骤见 [docs/windows-installation.md](docs/windows-installation.md)。
+
+### 手动安装（开发与跨平台）
 
 ```powershell
-cd d:\domain_inquiry
+cd <项目根目录>
 python -m venv .venv
-.\.venv\Scripts\activate
+.\.venv\Scripts\activate          # Windows
+# source .venv/bin/activate       # macOS / Linux
 pip install -r requirements.txt
-copy .env.example .env
-# 编辑 .env 填入 AccessKey
+copy .env.example .env             # Windows
+# cp .env.example .env            # macOS / Linux
 ```
 
-### 1. 不连阿里云，验证解析
+macOS / Linux 交互入口：
 
-```powershell
-python main.py parse -i data\sample_domains.json
-python main.py check -i data\sample_domains.json --dry-run
+```bash
+chmod +x run.sh
+./run.sh
 ```
 
-### 2. 连接阿里云查询
+---
+
+## 配置
+
+在项目根目录创建 `.env`（参考 `.env.example`）：
+
+
+| 变量                         | 说明                            |
+| -------------------------- | ----------------------------- |
+| `ALIYUN_ACCESS_KEY_ID`     | 阿里云 AccessKey ID              |
+| `ALIYUN_ACCESS_KEY_SECRET` | 阿里云 AccessKey Secret          |
+| `ALIYUN_REGION`            | 区域，默认 `cn-hangzhou`           |
+| `DEEPSEEK_API_KEY`         | DeepSeek API Key              |
+| `DEEPSEEK_BASE_URL`        | 默认 `https://api.deepseek.com` |
+| `DEEPSEEK_MODEL`           | 默认 `deepseek-chat`            |
+| `REVIEW_MIN_SCORE`         | 自检四维最低均分门槛，默认 `7`             |
+
+
+**安全**：`.env` 已列入 `.gitignore`，不得将密钥提交至远程仓库。
+
+**公司上下文**（可选编辑）：
+
+- `context/company.md` — 公司与产业背景
+- `context/naming_prefs.md` — 命名长度、音节、禁用词根等偏好
+
+---
+
+## 使用方式
+
+### 交互模式
 
 ```powershell
-python main.py check -i data\sample_domains.json
-python main.py check -d metfab.com google.com
-python main.py check -i data\sample_domains.json --limit 3 --json
+python main.py run
 ```
 
-### 3. 从 LLM 文本（或 Coze 输出）查询
+无子命令时默认进入交互模式。流程概要：
 
-将 Coze/LLM 返回的 JSON 保存为 `domains.txt`，或管道传入：
+1. 输入当次业务/行业方向
+2. 执行步骤 1–3，输出首轮可注册 list（含释义）
+3. 可选执行步骤 4（修改建议 + 变体 + 再查）
+4. 输出最终 list（含释义）
+5. 询问是否继续下一轮（可更换业务方向）
+6. 会话结束前汇总本次最终 list
+
+### 命令行
 
 ```powershell
-Get-Content domains.txt | python main.py check -i -
-```
-
-### 4. 完整流程（生成 → 自检 → 查可注册 → output）
-
-```powershell
+# 完整流水线（生成 → 自检 → 阿里云 → 写入 output/）
 python main.py generate -b "钣金加工" --check
-```
 
-加 `--variants` 在同一次任务里自动进入步骤4：
-
-```powershell
+# 同上，并自动执行步骤 4
 python main.py generate -b "钣金加工" --check --variants
-```
 
-或双击 `run.bat` / Mac 上 `./run.sh`（步骤4 在交互里可选确认）。
+# 仅生成候选（不查阿里云）
+python main.py generate -b "钣金加工"
 
-每次任务写入 `output/20260525_143022_钣金加工/`，并同步副本到 `output/latest/report.md`：
+# 解析 LLM 输出的 JSON 域名列表
+python main.py parse -i data\sample_domains.json
 
-| 文件 | 内容 |
-|------|------|
-| `01_candidates.json` | LLM 生成的全部候选 |
-| `02_reviews.json` | LLM 自检（读音、寓意、四维分） |
-| `03_availability.json` | 阿里云查询结果 |
-| `04_variant_suggestions.json` | 步骤4：修改建议（可选） |
-| `05_variants.json` | 步骤4：变体候选（可选） |
-| `06_variant_availability.json` | 步骤4：变体阿里云结果（可选） |
-| `07_final_list.json` / `final_list.md` | 最终推荐 list |
-| `report.md` | 可读报告（推荐列表含释义） |
-| `report.json` | 结构化结果 |
+# 查询指定域名可注册性
+python main.py check -d example.com another.com
+python main.py check -i domains.json --json
 
-默认会打印每个域名的查询进度，如 `[3/50] 正在查询: xxx.com`。
-
-## 公司上下文
-
-编辑 `context/company.md`（产业、工艺、材料、质量体系）与 `context/naming_prefs.md`（命名偏好）。生成域名时会自动注入 prompt，无需每次重复粘贴。
-
-## 域名缓存与避让（减少重复查询）
-
-
-| 文件                         | 作用                                                 |
-| -------------------------- | -------------------------------------------------- |
-| `data/domain_cache.json`   | 自动写入：每次 API 查询结果；**14 天内**已确认「不可注册」的域名下次**跳过 API** |
-| `data/blocked_domains.txt` | 人工维护：主观否决的域名；并注入 LLM prompt 避让                     |
-
-
-```powershell
-# 默认使用缓存
-python main.py check -i data\user_domains.json
-
-# 强制全部实时查阿里云
-python main.py check -i data\user_domains.json --no-cache
-
-# 调整不可注册缓存天数
-python main.py check -d metfab.com --cache-ttl-days 30
-```
-
-`generate` 时会读取避让列表写入 prompt（`{{avoid_domains}}`），减少 LLM 重复造已占用的名。**可注册**结果不会用于跳过 API（防止被抢注）。
-
-一键清空缓存（查错旧名单时用）：
-
-```powershell
+# 清空查询缓存
+python main.py cache clear
 python main.py cache clear --reset-blocked
 ```
 
-**注意**：`check -i data\user_domains.json` 只会查该文件里的域名；`generate --check` 才查本次 LLM 新生成的列表。旧版含 fab/mfg 的名单勿再使用该文件。
+### 常用参数
 
-## 目录结构
+
+| 参数                   | 适用命令                | 说明                  |
+| -------------------- | ------------------- | ------------------- |
+| `--check`            | `generate`          | 自检通过后查阿里云并写 output  |
+| `--variants`         | `generate`          | 自动执行步骤 4            |
+| `--no-output`        | `generate`          | 与 `--check` 联用时跳过写盘 |
+| `--no-cache`         | `check`, `generate` | 禁用查询缓存              |
+| `--cache-ttl-days N` | `check`, `generate` | 不可注册缓存天数，默认 14      |
+| `--limit N`          | `check`, `generate` | 最多查询前 N 个域名         |
+| `--dry-run`          | `check`, `generate` | 不调用阿里云、不写缓存         |
+| `--quiet`            | `check`, `generate` | 关闭逐条查询日志            |
+| `--json`             | `check`, `generate` | JSON 格式输出           |
+
+
+---
+
+## 输出目录
+
+任务结果写入 **项目根目录下的 `output/`**，**不纳入 Git 同步**（见 `.gitignore`）。首次成功执行任务后自动创建带时间戳的子目录。
 
 ```
-prompts/domain_generator.txt   # LLM 提示词（{{business}}、{{avoid_domains}}）
-data/blocked_domains.txt       # 人工否决列表
-data/domain_cache.json         # 查询缓存（自动生成，已 gitignore）
-data/sample_domains.json       # 测试用域名列表
-src/domain_cache.py            # 缓存与避让逻辑
-src/domain_parser.py           # 解析 LLM JSON
-src/aliyun_checker.py          # CheckDomain 封装
-src/pipeline.py              # 生成→自检→查询→输出
-src/domain_reviewer.py       # LLM 二层自检
-src/output_writer.py         # output/ 按任务存档
-src/deepseek_client.py       # DeepSeek API
-prompts/domain_reviewer.txt  # 自检 prompt
-main.py                        # CLI 入口
+output/
+  20260526_143022_钣金加工/
+    meta.json
+    01_candidates.json      # 全部候选
+    02_reviews.json         # 自检结果
+    03_availability.json    # 阿里云查询
+    report.md / report.json   # 可读与结构化报告
+    04_variant_suggestions.json   # 步骤 4（可选）
+    05_variants.json
+    06_variant_availability.json
+    07_final_list.json
+    final_list.md             # 最终推荐（含释义）
+  latest/                     # 最近一次任务副本
+    report.md
+    report.json
+    final_list.md
+    task_path.txt
 ```
+
+终端在步骤 3 完成后应出现：
+
+```text
+[输出] 已保存至 <项目根>\output\<时间戳>_<业务摘要>
+[输出] 最新副本 output/latest/report.md
+```
+
+若目录为空，请确认任务已执行至步骤 3 且无异常中断，并在**项目根目录**下查看 `output/`（非仓库外的其他路径）。
+
+说明文件见 [output/README.md](output/README.md)。
+
+---
+
+## 缓存与避让
+
+
+| 文件                         | 作用                                      |
+| -------------------------- | --------------------------------------- |
+| `data/domain_cache.json`   | 自动记录 API 查询结果；14 天内已确认**不可注册**的域名跳过 API |
+| `data/blocked_domains.txt` | 人工维护的否决列表，并注入 LLM 生成 prompt             |
+
+
+规则摘要：
+
+- **可注册**结果写入缓存，但**不**用于跳过后续 API（避免抢注误判）。
+- **可注册**域名**不**进入 LLM 避让列表。
+- `generate` 时避让列表上限约 80 条（blocked + 最近不可注册缓存）。
+- `check -i <文件>` 仅查询文件内域名；`generate --check` 查询**本次新生成**的列表。
+
+```powershell
+python main.py check -i data\sample_domains.json --no-cache
+python main.py cache clear --reset-blocked
+```
+
+---
+
+## 项目结构
+
+```
+domain_inquiry/
+├── main.py                 # CLI 入口
+├── run.bat / run.sh        # 快捷启动
+├── setup_windows.bat       # Windows 首次安装与桌面启动器
+├── requirements.txt
+├── .env.example
+├── context/
+│   ├── company.md          # 公司背景
+│   └── naming_prefs.md     # 命名偏好
+├── prompts/
+│   ├── domain_generator.txt
+│   ├── domain_reviewer.txt
+│   └── domain_refiner.txt
+├── data/
+│   ├── blocked_domains.txt
+│   ├── sample_domains.json
+│   └── domain_cache.json   # 运行时生成，已 gitignore
+├── src/
+│   ├── pipeline.py         # 主流水线
+│   ├── llm_client.py       # 生成
+│   ├── domain_reviewer.py  # 自检
+│   ├── domain_refiner.py   # 变体
+│   ├── aliyun_checker.py   # CheckDomain
+│   ├── domain_cache.py     # 缓存与避让
+│   ├── output_writer.py    # 报告落盘
+│   ├── interactive.py      # 交互模式
+│   └── ...
+├── output/                 # 任务结果（本机生成）
+└── docs/
+    └── windows-installation.md
+```
+
+---
+
+## 常见问题
+
+
+| 现象                   | 处理建议                                             |
+| -------------------- | ------------------------------------------------ |
+| 提示未找到 Python         | 安装 Python 3.10+ 并勾选 PATH，或执行 `setup_windows.bat` |
+| 阿里云 403 / 5000       | 检查 RAM 是否具备 `domain:QueryDomain`                 |
+| DeepSeek 鉴权失败        | 检查 `.env` 中 `DEEPSEEK_API_KEY`                   |
+| clone 后无 `output` 内容 | 属正常；需本地执行任务后才会生成                                 |
+| 避让列表始终显示 80          | 为 prompt 注入上限，不代表本次未写缓存                          |
+| 变体全部不可注册             | 短 .com 竞争激烈；可保留首轮可注册域名或更换业务方向重跑                  |
+| 移动项目目录后无法启动          | 重新运行 `setup_windows.bat`                         |
+
+
+## 参考
+
+- 阿里云域名 API：[CheckDomain](https://help.aliyun.com/document_detail/42875.html)
+- 品牌名生成相关研究：[Generating Appealing Brand Names (arXiv:1706.09335)](https://arxiv.org/abs/1706.09335)
 

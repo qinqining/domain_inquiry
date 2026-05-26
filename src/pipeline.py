@@ -1,5 +1,5 @@
 """
-一条流水线（非两轮）：
+一条流水线：
   1 LLM 生成 → 2 LLM 自检 → 3 阿里云
   → 4 [可选] LLM 修改建议+变体 → 阿里云查变体 → 最终 list
 """
@@ -281,6 +281,7 @@ def print_pipeline_summary(result: FullPipelineResult) -> None:
 
     if result.output:
         print(f"\n报告目录: {result.output.task_dir}", flush=True)
+        print(f"最新报告副本: output/latest/report.md", flush=True)
     if not result.variant_plan and result.available_rows():
         print(
             "\n提示: 步骤4 可选 — 对可注册域名生成修改建议与变体后再查阿里云。",
