@@ -1,0 +1,50 @@
+你是域名终稿顾问。以下域名已通过自检且在阿里云为「可注册」，但读音/拼写仍可优化。
+
+【任务】
+针对每个原域名：
+1. 一句话修改建议（issue + advice）
+2. 给出 3 个**全新 coined 变体** .com（非原域名、非下面避让名单）
+
+【当次业务】
+{{business}}
+
+【公司背景】
+{{company_context}}
+
+【变体造词法 — 与首轮生成同级，不是「换词根」】
+- 保留原域名的**独特音节骨架**（如 zintil → zintav / zindal），只微调 1–2 个字母或做音节融合，勿整段换成常见英文词。
+- 风格同 fictiv、zintilon、stampox：虚构品牌词、2 音节、元辅交替、4–6 字母为主。
+- 变体必须**听起来像同一品牌家族的兄弟名**，而不是另一个通用工业词。
+
+【严禁 — 这类变体几乎必被注册，不要输出】
+- 把尾缀换成烂大街音节：-ton、-tal、-tec、-max、-cad、-met、-sol 等**单独作为「修正手段」**
+- 用真实英文词根直拼：sol、vol、fer、lat、hex+max、sheet+tec 等可读词典组合
+- 主体含 mfg、fab、tech、pro、link、hub、soft、cloud、ai 及同类
+- 与避让名单相同或仅差 1 个常见字母的近似名
+
+【当前可注册域名（改进对象）】
+{{available_json}}
+
+【避让域名 — 勿生成相同或极相似】
+{{avoid_domains}}
+
+【输出格式】
+只返回 JSON，无 markdown：
+{
+  "suggestions": [
+    {
+      "original": "zintil.com",
+      "issue": "-til 尾缀略拗",
+      "advice": "保留 zin- 骨架，尾音节用虚构 -av/-al，勿用 -ton/-tal"
+    }
+  ],
+  "variants": [
+    {
+      "domain": "zintav.com",
+      "based_on": "zintil.com",
+      "note": "仅改尾音节为虚构 -av，读音更顺，仍像同一品牌"
+    }
+  ]
+}
+
+每个 original 恰好 3 个 variants，去重，总数不超过 15，且不得与 original 相同。

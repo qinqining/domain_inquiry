@@ -7,3 +7,5 @@ __pycache__/
 output/
 *.csv
 data/domain_cache.json
+output/*
+!output/.gitkeep

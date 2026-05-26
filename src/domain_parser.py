@@ -33,3 +33,11 @@ def parse_domain_list(raw: str) -> list[str]:
     if not domains:
         raise ValueError("未解析到任何域名")
     return domains
+
+
+def parse_json_array(raw: str) -> list[Any]:
+    text = _strip_markdown_fences(raw)
+    data = json.loads(text)
+    if not isinstance(data, list):
+        raise ValueError("LLM 输出必须是 JSON 数组")
+    return data

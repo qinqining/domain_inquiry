@@ -16,7 +16,9 @@ from src.domain_cache import (
     clear_cache,
 )
 from src.domain_parser import parse_domain_list
+from src.interactive import run_session
 from src.llm_client import generate_domains
+from src.pipeline import print_pipeline_summary, run_pipeline, run_variants_on_result
 
 
 def _read_text(path: str) -> str:
@@ -137,22 +139,38 @@ def cmd_cache_clear(args: argparse.Namespace) -> int:
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
+    if args.check:
+        result = run_pipeline(
+            args.business,
+            args,
+            save_output=not args.no_output,
+            run_variants=args.variants,
+        )
+        if args.json and result.output:
+            print(result.output.report_json.read_text(encoding="utf-8"))
+        else:
+            print(json.dumps(result.candidates, ensure_ascii=False, indent=2))
+            print_pipeline_summary(result)
+        return 0
+
     domains = generate_domains(args.business)
     print(json.dumps(domains, ensure_ascii=False, indent=2))
     print(f"\n生成 {len(domains)} 个域名", file=sys.stderr)
-
-    if args.check:
-        limit = args.limit if args.limit and args.limit > 0 else len(domains)
-        results = _run_domain_check(domains[:limit], args)
-        _print_results(results, as_json=args.json)
     return 0
+
+
+def cmd_run(_args: argparse.Namespace) -> int:
+    return run_session()
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="AI 域名列表解析 + 阿里云 CheckDomain 可注册查询"
     )
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command")
+
+    p_run = sub.add_parser("run", help="交互模式（双击 run.bat / run.sh）")
+    p_run.set_defaults(func=cmd_run)
 
     p_parse = sub.add_parser("parse", help="仅解析 LLM 输出的 JSON 域名列表")
     p_parse.add_argument(
@@ -184,11 +202,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_check.set_defaults(func=cmd_check)
 
     p_gen = sub.add_parser(
-        "generate", help="调用 LLM 生成域名（DeepSeek 或 MiniMax，见 .env）"
+        "generate", help="调用 DeepSeek 生成域名（需 DEEPSEEK_API_KEY）"
     )
     p_gen.add_argument("--business", "-b", required=True, help="业务描述")
     p_gen.add_argument(
-        "--check", action="store_true", help="生成后立即查询可注册性"
+        "--check", action="store_true", help="自检通过后查询阿里云并写入 output/"
+    )
+    p_gen.add_argument(
+        "--no-output",
+        action="store_true",
+        help="不写入 output/ 目录（与 --check 联用）",
+    )
+    p_gen.add_argument(
+        "--variants",
+        action="store_true",
+        help="步骤4：对可注册域名生成修改建议与变体并再查阿里云",
     )
     p_gen.add_argument("--dry-run", action="store_true")
     p_gen.add_argument("--limit", "-n", type=int, default=0)
@@ -216,6 +244,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    if not args.command:
+        return run_session()
     try:
         return args.func(args)
     except ValueError as exc:

@@ -1,0 +1,42 @@
+你是精密加工外贸独立站域名评审专家。请对下列 .com 候选域名做二层自检（尚未查询注册局）。
+
+【当次业务】
+{{business}}
+
+【公司背景】
+{{company_context}}
+
+【评审依据】
+参考品牌命名四维（各 1–10 分，越高越好）：
+1. readability 可读性：短、清晰、少怪拼写
+2. pronounceability 可发音性：2 音节为主，元辅交替，念得出口
+3. memorability 可记忆性：有词根/画面/工业质感，非随机串
+4. uniqueness 独特性：不像常见大牌，不像高频英文词
+
+【硬性淘汰】
+- 含或结尾 mfg、fab、tech、pro、link、apex、prime、hub、soft、cloud 等
+- 辅音堆叠、难读（如 tolerz、calibx、notchl）
+- 与大牌极易混淆
+
+【输出格式】
+只返回 JSON 数组，无 markdown。每个元素：
+{
+  "domain": "foldun.com",
+  "pass": true,
+  "tier": "recommend",
+  "pronunciation": "FOLD-un",
+  "syllables": 2,
+  "source_words": ["fold", "un"],
+  "meaning_zh": "折弯与加工节奏，贴合钣金",
+  "readability": 8,
+  "pronounceability": 8,
+  "memorability": 8,
+  "uniqueness": 7,
+  "reject_reason": ""
+}
+
+tier 取值：recommend（强烈推荐）| maybe（一般）| reject（淘汰）
+pass=true 仅当四维均≥7 且无硬性淘汰项；否则 pass=false 且 tier=reject。
+
+【待评审域名】
+{{domain_list}}
