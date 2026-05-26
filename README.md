@@ -8,14 +8,26 @@
 - RAM 用户需具备 `domain:QueryDomain` 权限。
 - `CheckDomain` 频率约 **10 QPS/账号**，脚本默认每次查询间隔 0.12 秒。
 
-## 同事使用（双击即可）
+## 同事使用（Windows · 推荐）
 
-| 系统 | 操作 |
+| 步骤 | 操作 |
 |------|------|
-| Windows | 双击 `run.bat`（需已 `pip install -r requirements.txt` 并配置 `.env`） |
-| Mac | 终端执行一次 `chmod +x run.sh`，之后双击或在终端 `./run.sh` |
+| 你 | `git push` 代码（**不要**提交 `.env`） |
+| 同事 | 安装 [Python 3.10+](https://www.python.org/downloads/)（勾选 **Add to PATH**） |
+| 同事 | `git clone` 仓库到本机，例如 `C:\tools\domain_inquiry` |
+| 同事 | 双击项目内 **`setup_windows.bat`**（仅首次） |
+| 同事 | 按提示编辑 `.env` 填入阿里云、DeepSeek 密钥 |
+| 同事 | 以后双击桌面 **`域名工具.bat`** 即可 |
 
-交互提示：输入行业范围 → 步骤1~3 → 可选步骤4 → 最终 list → **询问是否继续生成** → 退出前汇总本次会话 list。
+详细说明见 [docs/Windows同事安装.md](docs/Windows同事安装.md)。
+
+开发者在项目目录内也可直接双击 `run.bat`。
+
+### Mac（可选）
+
+终端执行一次 `chmod +x run.sh`，之后 `./run.sh`。
+
+交互提示：输入**当次**业务方向（每次可不同）→ 步骤1~3 → 可选步骤4 → 最终 list → **询问是否继续生成** → 退出前汇总本次会话 list。
 
 开发者在 Windows 上检查 `run.sh` 语法：`powershell -File scripts/test-run-sh.ps1`（需 Git Bash），或在 WSL 里 `bash -n run.sh`。
 
@@ -67,13 +79,13 @@ Get-Content domains.txt | python main.py check -i -
 ### 4. 完整流程（生成 → 自检 → 查可注册 → output）
 
 ```powershell
-python main.py generate -b "钣金加工，出口欧美" --check
+python main.py generate -b "钣金加工" --check
 ```
 
 加 `--variants` 在同一次任务里自动进入步骤4：
 
 ```powershell
-python main.py generate -b "钣金加工，出口欧美" --check --variants
+python main.py generate -b "钣金加工" --check --variants
 ```
 
 或双击 `run.bat` / Mac 上 `./run.sh`（步骤4 在交互里可选确认）。
